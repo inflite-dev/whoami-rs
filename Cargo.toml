@@ -10,3 +10,6 @@ repository = "https://github.com/inflite-dev/whoami-rs"
 readme = "README.md"
 
 [dependencies]
+axum = { features = ["http1", "http2", "macros", "tokio"], version = "0.8", default-features = false }
+bytes = { version = "1", default-features = false }
+tokio = { version = "1", features = ["rt-multi-thread"], default-features = false }
