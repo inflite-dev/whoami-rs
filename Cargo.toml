@@ -1,0 +1,12 @@
+[package]
+name = "whoami-rs"
+version = "0.1.0-alpha.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Webserver in Rust for deployment verification: host info, health checks, echo server behavior."
+homepage = "https://github.com/inflite-dev/whoami-rs"
+repository = "https://github.com/inflite-dev/whoami-rs"
+
+readme = "README.md"
+
+[dependencies]
