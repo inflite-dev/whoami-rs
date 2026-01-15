@@ -48,8 +48,8 @@ fn get_app_data() -> AppData {
     }
 }
 
-async fn bench() -> Bytes {
-    Bytes::from("1")
+async fn bench(State(bench_data): State<Bytes>) -> Bytes {
+    bench_data
 }
 
 async fn hello() -> Bytes {
@@ -60,20 +60,36 @@ async fn hello() -> Bytes {
 }
 
 #[axum::debug_handler]
-async fn whoami(app_data: State<Arc<AppData>>) -> Bytes {
-    let app_data_ref = app_data.as_ref();
-    Bytes::from(format!("{app_data_ref}"))
+async fn whoami(State(app_data): State<Arc<AppData>>) -> Bytes {
+    Bytes::from(format!("{app_data}"))
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Demonstrate isolating routers with different state.
+
+    // First state type: AppData.
+    // Must implement Clone - can use Arc instead of deriving or custom Clone impl.
     let app_data = Arc::new(get_app_data());
+    let whoami_router = Router::new()
+        .route("/", get(whoami).post(whoami).put(whoami))
+        .with_state(app_data);
+
+    // Second state type: Bytes.
+    // Already implements Clone.
+    let bench_data = Bytes::from("1");
+    let bench_router = Router::new()
+        .route("/bench", get(bench).post(bench).put(bench))
+        .with_state(bench_data);
 
     let app = Router::new()
-        .route("/", get(whoami).post(whoami).put(whoami))
-        .route("/bench", get(bench).post(bench).put(bench))
-        .route("/hello", get(hello).post(hello).put(hello))
-        .with_state(app_data);
+        // Merge routes from whoami_router with only AppData state dependency.
+        .merge(whoami_router)
+        // Merge routes from bench_router with only Bytes state dependency;
+        // merge will not propagate the state dependency up to previous routes.
+        .merge(bench_router)
+        // Routes without state
+        .route("/hello", get(hello).post(hello).put(hello));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
     let listener = tokio::net::TcpListener::bind(addr).await?;
