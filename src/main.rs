@@ -1,9 +1,12 @@
+use axum::body::Body;
 use axum::extract::State;
-use axum::routing::{Router, get};
+use axum::http::{HeaderMap, HeaderValue, Request};
+use axum::routing::{Router, get, post};
 use bytes::Bytes;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::{env, fmt};
+use whoami as whoami_lib;
 
 struct AppData {
     name: Option<String>,
@@ -35,7 +38,7 @@ impl fmt::Display for AppData {
 
 fn get_app_data() -> AppData {
     let app_name = env::var_os("WHOAMI_NAME").and_then(|os| os.into_string().ok());
-    let app_hostname = whoami::hostname().ok();
+    let app_hostname = whoami_lib::hostname().ok();
     let app_ips = pnet::datalink::interfaces()
         .iter()
         .flat_map(|iface| iface.ips.iter().map(|ipnet| ipnet.ip()))
@@ -64,12 +67,23 @@ async fn whoami(State(app_data): State<Arc<AppData>>) -> Bytes {
     Bytes::from(format!("{app_data}"))
 }
 
+async fn echo_stream(request: Request<Body>) -> (HeaderMap, Body) {
+    (
+        // StatusCode::OK,
+        HeaderMap::from_iter([(
+            axum::http::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        )]),
+        Body::from_stream(request.into_body().into_data_stream()),
+    )
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Demonstrate isolating routers with different state.
 
     // First state type: AppData.
-    // Must implement Clone - can use Arc instead of deriving or custom Clone impl.
+    // Must implement Clone - can use Arc instead of deriving or implementing Clone.
     let app_data = Arc::new(get_app_data());
     let whoami_router = Router::new()
         .route("/", get(whoami).post(whoami).put(whoami))
@@ -89,7 +103,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // merge will not propagate the state dependency up to previous routes.
         .merge(bench_router)
         // Routes without state
-        .route("/hello", get(hello).post(hello).put(hello));
+        .route("/hello", get(hello).post(hello).put(hello))
+        .route("/echo", post(echo_stream).put(echo_stream));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
     let listener = tokio::net::TcpListener::bind(addr).await?;
