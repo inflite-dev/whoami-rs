@@ -85,9 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // First state type: AppData.
     // Must implement Clone - can use Arc instead of deriving or implementing Clone.
     let app_data = Arc::new(get_app_data());
-    let whoami_router = Router::new()
-        .route("/", get(whoami).post(whoami).put(whoami))
-        .with_state(app_data);
+    let whoami_router = Router::new().route("/", get(whoami)).with_state(app_data);
 
     // Second state type: Bytes.
     // Already implements Clone.
@@ -103,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // merge will not propagate the state dependency up to previous routes.
         .merge(bench_router)
         // Routes without state
-        .route("/hello", get(hello).post(hello).put(hello))
+        .route("/hello", get(hello))
         .route("/echo", post(echo_stream).put(echo_stream));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
